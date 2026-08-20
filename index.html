@@ -146,8 +146,7 @@
     border-bottom: 1px solid var(--line); cursor: pointer;
   }
   ul.cardlist .li-main {
-    display: flex; align-items: baseline; gap: 12px;
-    padding: 13px 2px; background: var(--bg);
+    display: block; padding: 12px 2px; background: var(--bg);
     position: relative; transition: transform 0.15s ease;
   }
   ul.cardlist li.swiping .li-main { transition: none; }
@@ -157,8 +156,12 @@
     font-size: 13px; font-family: var(--sans); cursor: pointer; letter-spacing: 0.06em;
   }
   @media (prefers-reduced-motion: reduce) { ul.cardlist .li-main { transition: none; } }
-  ul.cardlist .front { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
-  ul.cardlist .back { font-size: 13px; color: var(--sub); overflow-wrap: anywhere; flex: 1; }
+  ul.cardlist .li-top { display: flex; align-items: baseline; gap: 12px; }
+  ul.cardlist .front { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; flex: 1; }
+  ul.cardlist .back {
+    display: block; font-size: 13px; color: var(--sub);
+    overflow-wrap: anywhere; white-space: pre-line; line-height: 1.7; margin-top: 2px;
+  }
   ul.cardlist .st { font-size: 11px; color: var(--sub); white-space: nowrap; }
   ul.cardlist .st.learned { color: var(--ok); }
   ul.cardlist .st.learning { color: var(--accent-deep); }
@@ -832,11 +835,13 @@
       var st = statusOf(c);
       return '<li data-id="' + c.id + '">' +
         '<button type="button" class="li-del" data-del="' + c.id + '">削除</button>' +
-        '<div class="li-main"><span class="front">' + esc(c.front) + '</span>' +
-        '<span class="back">' + esc(c.back.split('\n')[0]) + '</span>' +
-        '<span class="st ' + st[1] + '">' + st[0] + '</span></div></li>';
+        '<div class="li-main">' +
+        '<div class="li-top"><span class="front">' + esc(c.front) + '</span>' +
+        '<span class="st ' + st[1] + '">' + st[0] + '</span></div>' +
+        '<span class="back">' + esc(c.back) + '</span>' +
+        '</div></li>';
     }).join('') +
-    (rest ? '<li data-more="1"><div class="li-main" style="justify-content:center"><span class="back" style="flex:none;text-decoration:underline;text-underline-offset:3px">残り ' + rest + ' 枚を表示する</span></div></li>' : '');
+    (rest ? '<li data-more="1"><div class="li-main" style="text-align:center"><span class="back" style="text-decoration:underline;text-underline-offset:3px">残り ' + rest + ' 枚を表示する</span></div></li>' : '');
     openLi = null;
   }
   $('searchBox').addEventListener('input', function () { listShowAll = false; renderList(); });
