@@ -65,14 +65,22 @@
 
   .card-stage {
     background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
-    min-height: 260px; display: flex; flex-direction: column;
-    justify-content: center; align-items: center; text-align: center;
-    padding: 32px 24px; cursor: pointer; user-select: none;
+    min-height: 260px; max-height: 68dvh; overflow-y: auto;
+    display: flex; flex-direction: column;
+    padding: 24px; cursor: pointer; user-select: none;
+  }
+  .card-inner {
+    margin: auto; width: 100%;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
   }
   .card-stage .side-label { font-size: 11px; letter-spacing: 0.16em; color: var(--sub); margin-bottom: 16px; }
-  .card-stage .word { font-size: 26px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+  .card-stage .word { font-size: 26px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-line; }
+  .card-stage .word.long { font-size: 20px; }
+  .card-stage .word.longer { font-size: 16px; text-align: left; align-self: stretch; }
   .card-stage .answer { font-size: 22px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-line; }
-  .card-stage .note { font-size: 14px; color: var(--sub); margin-top: 16px; line-height: 1.7; overflow-wrap: anywhere; white-space: pre-line; text-align: left; }
+  .card-stage .answer.long { font-size: 17px; }
+  .card-stage .answer.longer { font-size: 15px; text-align: left; align-self: stretch; }
+  .card-stage .note { font-size: 14px; color: var(--sub); margin-top: 16px; line-height: 1.7; overflow-wrap: anywhere; white-space: pre-line; text-align: left; align-self: stretch; }
   .card-stage .hint { font-size: 12px; color: var(--sub); margin-top: 24px; }
   .card-stage .streak-dots { font-size: 12px; color: var(--sub); letter-spacing: 0.3em; margin-top: 18px; }
   .card-stage .streak-dots b { color: var(--accent-deep); font-weight: 400; }
@@ -134,9 +142,21 @@
   .search-row { margin-bottom: 16px; }
   ul.cardlist { list-style: none; }
   ul.cardlist li {
-    display: flex; align-items: baseline; gap: 12px;
-    padding: 13px 2px; border-bottom: 1px solid var(--line); cursor: pointer;
+    position: relative; overflow: hidden;
+    border-bottom: 1px solid var(--line); cursor: pointer;
   }
+  ul.cardlist .li-main {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 13px 2px; background: var(--bg);
+    position: relative; transition: transform 0.15s ease;
+  }
+  ul.cardlist li.swiping .li-main { transition: none; }
+  ul.cardlist .li-del {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 88px;
+    border: none; background: var(--accent); color: #FFFFFF;
+    font-size: 13px; font-family: var(--sans); cursor: pointer; letter-spacing: 0.06em;
+  }
+  @media (prefers-reduced-motion: reduce) { ul.cardlist .li-main { transition: none; } }
   ul.cardlist .front { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
   ul.cardlist .back { font-size: 13px; color: var(--sub); overflow-wrap: anywhere; flex: 1; }
   ul.cardlist .st { font-size: 11px; color: var(--sub); white-space: nowrap; }
@@ -255,7 +275,7 @@
           </p>
           <div class="field-row">
             <label class="field"><span>テーマ（例：英検2級の頻出単語）</span><input type="text" id="gptTheme" autocomplete="off"></label>
-            <label class="field narrow"><span>枚数</span><input type="text" id="gptCount" value="20" inputmode="numeric"></label>
+            <label class="field narrow"><span>枚数</span><input type="text" id="gptCount" value="50" inputmode="numeric"></label>
           </div>
           <button class="btn block" id="btnCopyPrompt">AI用プロンプトをコピー</button>
         </div>
@@ -511,6 +531,13 @@
     return days <= 1 ? '次の復習は明日です' : '次の復習は' + days + '日後です';
   }
 
+  function wrapStage(inner) { return '<div class="card-inner">' + inner + '</div>'; }
+  function sizeClass(t) {
+    t = String(t || '');
+    if (t.length > 80) return ' longer';
+    if (t.length > 30) return ' long';
+    return '';
+  }
   function renderStage() {
     var st = $('stage'), acts = $('studyActions');
     $('gradeRow').classList.remove('show');
@@ -520,10 +547,10 @@
       st.classList.add('done');
       var total = deckCards(S.currentDeck).length;
       if (total === 0) {
-        st.innerHTML = '<div class="word">カードを追加して始めましょう</div><div class="hint">下の「追加」から登録できます</div>';
+        st.innerHTML = wrapStage('<div class="word">カードを追加して始めましょう</div><div class="hint">下の「追加」から登録できます</div>');
       } else if (mode === 'review') {
         var hint = fmtNext() || 'おつかれさまでした';
-        st.innerHTML = '<div class="word">今日の復習はおしまい</div><div class="hint">' + esc(hint) + '</div>';
+        st.innerHTML = wrapStage('<div class="word">今日の復習はおしまい</div><div class="hint">' + esc(hint) + '</div>');
         if (learnCards().length > 0) {
           acts.innerHTML = '<button class="btn quiet" id="btnGoLearn">おぼえるへすすむ</button>';
           var gl = $('btnGoLearn');
@@ -534,8 +561,8 @@
           if (bp1) bp1.addEventListener('click', startPractice);
         }
       } else {
-        st.innerHTML = '<div class="word">おぼえるカードはありません</div>' +
-          '<div class="hint">' + (reviewDueCards().length > 0 ? '復習コーナーにカードが待っています' : esc(fmtNext() || '「追加」から新しいカードを登録できます')) + '</div>';
+        st.innerHTML = wrapStage('<div class="word">おぼえるカードはありません</div>' +
+          '<div class="hint">' + (reviewDueCards().length > 0 ? '復習コーナーにカードが待っています' : esc(fmtNext() || '「追加」から新しいカードを登録できます')) + '</div>');
         acts.innerHTML = '<button class="btn quiet" id="btnPractice">ランダムに練習する</button>';
         var bp2 = $('btnPractice');
         if (bp2) bp2.addEventListener('click', startPractice);
@@ -544,17 +571,18 @@
       return;
     }
     if (!flipped) {
-      st.innerHTML = '<div class="side-label">' + (mode === 'review' ? '復習' : 'おもて') + '</div>' +
-        '<div class="word">' + esc(current.front) + '</div>' +
+      st.innerHTML = wrapStage('<div class="side-label">' + (mode === 'review' ? '復習' : 'おもて') + '</div>' +
+        '<div class="word' + sizeClass(current.front) + '">' + esc(current.front) + '</div>' +
         speakBtn(current.front) +
         (mode === 'learn' ? streakDots(current) : '') +
-        '<div class="hint">' + (revealed ? 'タップで答えに戻る' : 'タップして答えを見る') + '</div>';
+        '<div class="hint">' + (revealed ? 'タップで答えに戻る' : 'タップして答えを見る') + '</div>');
     } else {
-      st.innerHTML = '<div class="side-label">うら</div><div class="answer">' + esc(current.back) + '</div>' +
+      st.innerHTML = wrapStage('<div class="side-label">うら</div>' +
+        '<div class="answer' + sizeClass(current.back) + '">' + esc(current.back) + '</div>' +
         (current.note ? '<div class="note">' + esc(current.note) + '</div>' : '') +
         speakBtn(current.back) +
         (mode === 'learn' ? streakDots(current) : '') +
-        '<div class="hint">タップで表に戻る（何度でも見比べられます）</div>';
+        '<div class="hint">タップで表に戻る（何度でも見比べられます）</div>');
     }
     if (revealed) $('gradeRow').classList.add('show');
   }
@@ -676,8 +704,8 @@
   function buildPrompt() {
     var theme = $('gptTheme').value.trim() || '（ここに覚えたいテーマを書いてください）';
     var n = parseInt($('gptCount').value, 10);
-    if (!n || n < 1) n = 20;
-    if (n > 200) n = 200;
+    if (!n || n < 1) n = 50;
+    if (n > 500) n = 500;
     return [
       '単語帳のカードを' + n + '枚作ってください。',
       '',
@@ -802,17 +830,71 @@
     }
     $('cardList').innerHTML = shown.map(function (c) {
       var st = statusOf(c);
-      return '<li data-id="' + c.id + '"><span class="front">' + esc(c.front) + '</span>' +
+      return '<li data-id="' + c.id + '">' +
+        '<button type="button" class="li-del" data-del="' + c.id + '">削除</button>' +
+        '<div class="li-main"><span class="front">' + esc(c.front) + '</span>' +
         '<span class="back">' + esc(c.back.split('\n')[0]) + '</span>' +
-        '<span class="st ' + st[1] + '">' + st[0] + '</span></li>';
+        '<span class="st ' + st[1] + '">' + st[0] + '</span></div></li>';
     }).join('') +
-    (rest ? '<li data-more="1" style="justify-content:center"><span class="back" style="flex:none;text-decoration:underline;text-underline-offset:3px">残り ' + rest + ' 枚を表示する</span></li>' : '');
+    (rest ? '<li data-more="1"><div class="li-main" style="justify-content:center"><span class="back" style="flex:none;text-decoration:underline;text-underline-offset:3px">残り ' + rest + ' 枚を表示する</span></div></li>' : '');
+    openLi = null;
   }
   $('searchBox').addEventListener('input', function () { listShowAll = false; renderList(); });
+
+  // ---------- スワイプで削除（誤操作防止：スワイプ→削除ボタンの2段階） ----------
+  var openLi = null, touchState = null, suppressClick = false;
+  function closeSwipe() {
+    if (!openLi) return;
+    var m = openLi.querySelector('.li-main');
+    if (m) m.style.transform = '';
+    openLi = null;
+  }
+  $('cardList').addEventListener('touchstart', function (e) {
+    var li = e.target.closest('li[data-id]'); if (!li) return;
+    if (openLi && openLi !== li) closeSwipe();
+    var t = e.touches[0];
+    touchState = { li: li, x0: t.clientX, y0: t.clientY, base: (openLi === li ? -88 : 0), dx: 0, active: false };
+  }, { passive: true });
+  $('cardList').addEventListener('touchmove', function (e) {
+    if (!touchState) return;
+    var t = e.touches[0], dx = t.clientX - touchState.x0, dy = t.clientY - touchState.y0;
+    if (!touchState.active) {
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) { touchState.active = true; touchState.li.classList.add('swiping'); }
+      else if (Math.abs(dy) > 10) { touchState = null; return; }
+      else return;
+    }
+    touchState.dx = dx;
+    var pos = Math.max(-88, Math.min(0, touchState.base + dx));
+    touchState.li.querySelector('.li-main').style.transform = 'translateX(' + pos + 'px)';
+  }, { passive: true });
+  $('cardList').addEventListener('touchend', function () {
+    if (!touchState) return;
+    var li = touchState.li, m = li.querySelector('.li-main');
+    li.classList.remove('swiping');
+    if (touchState.active) {
+      suppressClick = true;
+      var pos = touchState.base + touchState.dx;
+      if (pos < -44) { m.style.transform = 'translateX(-88px)'; openLi = li; }
+      else { m.style.transform = ''; if (openLi === li) openLi = null; }
+    }
+    touchState = null;
+  });
+
   $('cardList').addEventListener('click', function (e) {
+    if (suppressClick) { suppressClick = false; return; }
+    var del = e.target.closest('.li-del');
+    if (del) {
+      var id = del.dataset.del;
+      var card = S.cards.filter(function (x) { return x.id === id; })[0];
+      S.cards = S.cards.filter(function (x) { return x.id !== id; });
+      save(); renderList();
+      toast('「' + (card ? card.front : '') + '」を削除しました');
+      return;
+    }
     var li = e.target.closest('li'); if (!li) return;
     if (li.dataset.more) { listShowAll = true; renderList(); return; }
-    openEdit(li.dataset.id);
+    if (openLi) { closeSwipe(); return; } // 削除ボタンが開いているときのタップは閉じるだけ
+    if (li.dataset.id) openEdit(li.dataset.id);
   });
   function openEdit(id) {
     var c = S.cards.filter(function (x) { return x.id === id; })[0];
