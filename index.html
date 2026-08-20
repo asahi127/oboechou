@@ -71,8 +71,8 @@
   }
   .card-stage .side-label { font-size: 11px; letter-spacing: 0.16em; color: var(--sub); margin-bottom: 16px; }
   .card-stage .word { font-size: 26px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
-  .card-stage .answer { font-size: 22px; line-height: 1.6; overflow-wrap: anywhere; }
-  .card-stage .note { font-size: 14px; color: var(--sub); margin-top: 16px; line-height: 1.7; overflow-wrap: anywhere; }
+  .card-stage .answer { font-size: 22px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-line; }
+  .card-stage .note { font-size: 14px; color: var(--sub); margin-top: 16px; line-height: 1.7; overflow-wrap: anywhere; white-space: pre-line; text-align: left; }
   .card-stage .hint { font-size: 12px; color: var(--sub); margin-top: 24px; }
   .card-stage .streak-dots { font-size: 12px; color: var(--sub); letter-spacing: 0.3em; margin-top: 18px; }
   .card-stage .streak-dots b { color: var(--accent-deep); font-weight: 400; }
@@ -127,7 +127,7 @@
   .preview-box .count { font-size: 14px; margin-bottom: 10px; }
   .preview-box .count b { color: var(--accent-deep); font-variant-numeric: tabular-nums; }
   table.preview { width: 100%; border-collapse: collapse; font-size: 13px; }
-  table.preview td { border-bottom: 1px solid var(--line); padding: 8px 8px 8px 0; vertical-align: top; overflow-wrap: anywhere; }
+  table.preview td { border-bottom: 1px solid var(--line); padding: 8px 8px 8px 0; vertical-align: top; overflow-wrap: anywhere; white-space: pre-line; }
   table.preview td.f2 { color: var(--sub); }
 
   /* ---- 一覧 ---- */
@@ -241,8 +241,8 @@
 
       <div id="addOne">
         <label class="field"><span>おもて（問題・単語）</span><input type="text" id="inFront" autocomplete="off"></label>
-        <label class="field"><span>うら（答え・意味）</span><input type="text" id="inBack" autocomplete="off"></label>
-        <label class="field"><span>メモ（任意）</span><input type="text" id="inNote" autocomplete="off"></label>
+        <label class="field"><span>うら（答え・意味）</span><textarea id="inBack" rows="2"></textarea></label>
+        <label class="field"><span>メモ・例文など（任意・何行でも）</span><textarea id="inNote" rows="3"></textarea></label>
         <button class="btn primary block" id="btnAddOne">追加する</button>
       </div>
 
@@ -336,8 +336,8 @@
   <div class="sheet">
     <h3>カードを編集</h3>
     <label class="field"><span>おもて</span><input type="text" id="edFront"></label>
-    <label class="field"><span>うら</span><input type="text" id="edBack"></label>
-    <label class="field"><span>メモ</span><input type="text" id="edNote"></label>
+    <label class="field"><span>うら</span><textarea id="edBack" rows="2"></textarea></label>
+    <label class="field"><span>メモ・例文など</span><textarea id="edNote" rows="3"></textarea></label>
     <label class="field"><span>帳</span><select class="wide" id="edDeck"></select></label>
     <div class="ops-row">
       <button class="btn quiet" id="edCancel">閉じる</button>
@@ -418,7 +418,7 @@
   });
 
   // ---------- 学習 ----------
-  var queue = [], current = null, flipped = false;
+  var queue = [], current = null, flipped = false, revealed = false;
   var mode = 'learn'; // 'learn' | 'review' | 'practice'
 
   function learnCards() {
@@ -489,6 +489,7 @@
   function nextCard() {
     current = queue.shift() || null;
     flipped = false;
+    revealed = false;
     renderStage();
   }
 
@@ -547,14 +548,15 @@
         '<div class="word">' + esc(current.front) + '</div>' +
         speakBtn(current.front) +
         (mode === 'learn' ? streakDots(current) : '') +
-        '<div class="hint">タップして答えを見る</div>';
+        '<div class="hint">' + (revealed ? 'タップで答えに戻る' : 'タップして答えを見る') + '</div>';
     } else {
       st.innerHTML = '<div class="side-label">うら</div><div class="answer">' + esc(current.back) + '</div>' +
         (current.note ? '<div class="note">' + esc(current.note) + '</div>' : '') +
         speakBtn(current.back) +
-        (mode === 'learn' ? streakDots(current) : '');
-      $('gradeRow').classList.add('show');
+        (mode === 'learn' ? streakDots(current) : '') +
+        '<div class="hint">タップで表に戻る（何度でも見比べられます）</div>';
     }
+    if (revealed) $('gradeRow').classList.add('show');
   }
   // ---------- 読み上げ（端末内蔵の音声・通信なし） ----------
   function canSpeak() { return 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window; }
@@ -578,18 +580,23 @@
     } catch (e) { /* 読み上げ非対応でもアプリは動かす */ }
   }
 
+  function flipCard() {
+    if (!current) return;
+    flipped = !flipped;
+    if (flipped) revealed = true;
+    renderStage();
+  }
   $('stage').addEventListener('click', function (e) {
     var sp = e.target.closest('.speak-btn');
     if (sp) { speak(sp.dataset.say); return; }
-    if (!current || flipped) return;
-    flipped = true; renderStage();
+    flipCard();
   });
   $('stage').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (current && !flipped) { flipped = true; renderStage(); } }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flipCard(); }
   });
 
   function grade(kind) {
-    if (!current || !flipped) return;
+    if (!current || !revealed) return;
     var c = current, now = Date.now();
 
     if (mode === 'practice') {
@@ -678,7 +685,9 @@
       '',
       '出力ルール：',
       '・タブ区切りのプレーンテキストを、コードブロックに入れて出力する',
-      '・1行＝カード1枚。列は左から「おもて（問題や単語）」「うら（答えや意味）」「メモ（覚えるコツや例。短く）」の3列',
+      '・1行＝カード1枚。列は左から「おもて（問題や単語）」「うら（答えや意味）」「メモ」の3列',
+      '・メモ列には、例文（外国語なら例文とその日本語訳）や覚えるコツ、補足などをしっかり入れる',
+      '・メモ列の中で改行したいときは、実際の改行のかわりに \\n という2文字を書く（例：例文\\n訳\\nコツ）',
       '・ヘッダー行・番号・記号・前置きやしめくくりの文章は一切つけない',
       '・おもては簡潔に、うらは端的な答えにする',
       '・重要なもの、よく出るものから順に選ぶ'
@@ -730,7 +739,9 @@
       line = line.replace(/^```.*$/, ''); // AIのコードブロック記号は無視
       if (line.trim() === '') return;
       var f = line.indexOf('\t') >= 0 ? line.split('\t') : parseCsvLine(line);
-      var front = (f[0] || '').trim(), back = (f[1] || '').trim(), note = (f[2] || '').trim();
+      // セル内の「\n」という2文字は実際の改行にする（AI出力の例文など用）
+      function unesc(s) { return String(s || '').replace(/\\n/g, '\n').trim(); }
+      var front = (f[0] || '').trim(), back = unesc(f[1]), note = unesc(f[2]);
       if (front && back) rows.push([front, back, note]);
     });
     return rows;
@@ -774,6 +785,8 @@
     if ((c.streak || 0) > 0) return ['おぼえ中', 'learning'];
     return ['これから', ''];
   }
+  var LIST_CAP = 200; // 大量登録でも一覧が重くならないよう、まず200枚だけ表示
+  var listShowAll = false;
   function renderList() {
     var q = $('searchBox').value.trim().toLowerCase();
     var cards = deckCards(S.currentDeck).slice().reverse();
@@ -782,16 +795,23 @@
     });
     $('listCount').textContent = cards.length + ' 枚';
     $('listEmpty').hidden = cards.length !== 0;
-    $('cardList').innerHTML = cards.map(function (c) {
+    var shown = cards, rest = 0;
+    if (!listShowAll && cards.length > LIST_CAP) {
+      shown = cards.slice(0, LIST_CAP);
+      rest = cards.length - LIST_CAP;
+    }
+    $('cardList').innerHTML = shown.map(function (c) {
       var st = statusOf(c);
       return '<li data-id="' + c.id + '"><span class="front">' + esc(c.front) + '</span>' +
-        '<span class="back">' + esc(c.back) + '</span>' +
+        '<span class="back">' + esc(c.back.split('\n')[0]) + '</span>' +
         '<span class="st ' + st[1] + '">' + st[0] + '</span></li>';
-    }).join('');
+    }).join('') +
+    (rest ? '<li data-more="1" style="justify-content:center"><span class="back" style="flex:none;text-decoration:underline;text-underline-offset:3px">残り ' + rest + ' 枚を表示する</span></li>' : '');
   }
-  $('searchBox').addEventListener('input', renderList);
+  $('searchBox').addEventListener('input', function () { listShowAll = false; renderList(); });
   $('cardList').addEventListener('click', function (e) {
     var li = e.target.closest('li'); if (!li) return;
+    if (li.dataset.more) { listShowAll = true; renderList(); return; }
     openEdit(li.dataset.id);
   });
   function openEdit(id) {
